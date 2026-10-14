@@ -71,6 +71,7 @@
     outline: 2px solid var(--accent);
     outline-offset: 1px;
   }
+  .field { margin-top: 14px; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
   @media (max-width: 520px) {
     body { padding-top: 18px; }
@@ -130,6 +131,11 @@
     <label for="url">下载链接</label>
     <textarea id="url" placeholder="在这里粘贴链接" autofocus spellcheck="false"></textarea>
 
+    <div class="field">
+      <label for="dir">保存目录(可选)</label>
+      <input type="text" id="dir" placeholder="例如 ~/Downloads 或 /data/videos" spellcheck="false" autocapitalize="off" autocomplete="off">
+    </div>
+
     <div class="row">
       <div>
         <label for="name">保存文件名</label>
@@ -155,13 +161,13 @@
     <p class="status" id="status" role="status"></p>
   </div>
 
-  <p class="note">需要先安装:sudo apt install aria2。直链有时效,过期后请重新获取。</p>
+  <p class="note">需要先安装:sudo apt install aria2。直链有时效,过期后请重新获取。目录不存在时 aria2 会自动创建。</p>
 </main>
 
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var urlEl = $('url'), nameEl = $('name'), connEl = $('conn');
+  var urlEl = $('url'), nameEl = $('name'), connEl = $('conn'), dirEl = $('dir');
   var uaEl = $('ua'), ipv6El = $('ipv6'), autoEl = $('auto');
   var out = $('out'), copyBtn = $('copy'), statusEl = $('status');
   var nameTouched = false;
@@ -170,6 +176,16 @@
   function shq(s) {
     // single-quote for bash, safe for & ? $ etc.
     return "'" + s.replace(/'/g, "'\\''") + "'";
+  }
+
+  function shqPath(p) {
+    // keep a leading ~ unquoted so the shell expands it; quote the rest
+    if (p === '~') return '~';
+    if (p.indexOf('~/') === 0) {
+      var rest = p.slice(2);
+      return rest ? '~/' + shq(rest) : '~/';
+    }
+    return shq(p);
   }
 
   function guessName(u) {
@@ -206,6 +222,8 @@
                  '--file-allocation=none', '-c'];
     if (ipv6El.checked) parts.push('--disable-ipv6=true');
     if (uaEl.checked) parts.push('--user-agent=' + shq('Mozilla/5.0'));
+    var dir = dirEl.value.trim();
+    if (dir) parts.push('-d ' + shqPath(dir));
     var fn = nameEl.value.trim();
     if (fn) parts.push('-o ' + shq(fn));
     parts.push(shq(u));
@@ -249,11 +267,8 @@
     say('');
     if (build() && autoEl.checked) copy();
   });
-  urlEl.addEventListener('paste', function () {
-    // value updates after paste; input event handles it
-  });
   nameEl.addEventListener('input', function () { nameTouched = true; build(); });
-  [connEl, uaEl, ipv6El].forEach(function (el) {
+  [connEl, uaEl, ipv6El, dirEl].forEach(function (el) {
     el.addEventListener('input', function () { say(''); build(); });
   });
   copyBtn.addEventListener('click', copy);
